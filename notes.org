@@ -1,0 +1,245 @@
+* Notes
+<2022-10-21 Fri 20:30>: I did the following commands to set this lab up:
+#+begin_src bash
+bundle install
+rails db:migrate db:seed
+#+end_src
+
+This is the HTTP Verb Meets Route Table For This Lab:
+|--------------+------------+-------------------+------------------------|
+| HTTP Verb    | Path       | Controller#Action | Description            |
+|--------------+------------+-------------------+------------------------|
+| PATCH or PUT | /birds/:id | birds#update      | Update a specific bird |
+|--------------+------------+-------------------+------------------------|
+
+I then created a related migration with the 'rails g migration' command below:
+#+begin_src bash
+samuelbanya@Samuels-MBP ~/hub/Development/code/phase-4/phase-4-rails-resources-update $ rails g migration AddLikesToBird likes:integer --no-test-framework
+      invoke  active_record
+      create    db/migrate/20221022013241_add_likes_to_bird.rb
+#+end_src
+
+I then made the following revisions to the 'db/migrate/20221022013241_add_likes_to_bird.rb' migration file to define a 'null:' symbol value as well as a 'default:' symbol value:
+#+begin_src ruby
+class AddLikesToBird < ActiveRecord::Migration[6.1]
+  def change
+    add_column :birds, :likes, :integer, null: false, default: 0
+  end
+end
+#+end_src
+
+I then ran the 'rails db:migrate' command afterwards:
+#+begin_src bash
+samuelbanya@Samuels-MBP ~/hub/Development/code/phase-4/phase-4-rails-resources-update $ rails db:migrate
+== 20221022013241 AddLikesToBird: migrating ===================================
+-- add_column(:birds, :likes, :integer, {:null=>false, :default=>0})
+   -> 0.0022s
+== 20221022013241 AddLikesToBird: migrated (0.0023s) ==========================
+#+end_src
+
+I then re-seeded the database with the 'rails db:reset' command:
+#+begin_src bash
+samuelbanya@Samuels-MBP ~/hub/Development/code/phase-4/phase-4-rails-resources-update $ rails db:reset
+Dropped database 'db/development.sqlite3'
+Database 'db/test.sqlite3' does not exist
+Created database 'db/development.sqlite3'
+Created database 'db/test.sqlite3'
+🦩 Seeding birds...
+✅ Done seeding!
+#+end_src
+
+I then revised the 'config/routes.rb' to include the ':update' action as well:
+#+begin_src ruby
+Rails.application.routes.draw do
+  resources :birds, only: [:index, :show, :create, :update]
+end
+#+end_src
+
+I then updated the 'app/controllers/birds_controller.rb' controller file with the following '#update' method:
+#+begin_src ruby
+class BirdsController < ApplicationController
+
+  # GET /birds
+  def index
+    birds = Bird.all
+    render json: birds
+  end
+
+  # POST /birds
+  def create
+    bird = Bird.create(bird_params)
+    render json: bird, status: :created
+  end
+
+  # GET /birds/:id
+  def show
+    bird = Bird.find_by(id: params[:id])
+    if bird
+      render json: bird
+    else
+      render json: { error: "Bird not found" }, status: :not_found
+    end
+  end
+
+  # PATCH /birds/:id
+  def update
+    bird = Bird.find_by(id: params[:id])
+    if bird
+      bird.update(bird_params)
+      render json: bird
+    else
+      render json: { error: "Bird not found"}, status: :not_found
+    end
+  end
+
+  private
+
+  def bird_params
+    params.permit(:name, :species)
+  end
+
+end
+#+end_src
+
+I then made a further revision to the 'app/controllers/birds_controller.rb' controller file to include a revision to the private 'bird_params' method as well to include the ':likes' symbol as well:
+#+begin_src ruby
+class BirdsController < ApplicationController
+
+  # GET /birds
+  def index
+    birds = Bird.all
+    render json: birds
+  end
+
+  # POST /birds
+  def create
+    bird = Bird.create(bird_params)
+    render json: bird, status: :created
+  end
+
+  # GET /birds/:id
+  def show
+    bird = Bird.find_by(id: params[:id])
+    if bird
+      render json: bird
+    else
+      render json: { error: "Bird not found" }, status: :not_found
+    end
+  end
+
+  # PATCH /birds/:id
+  def update
+    bird = Bird.find_by(id: params[:id])
+    if bird
+      bird.update(bird_params)
+      render json: bird
+    else
+      render json: { error: "Bird not found"}, status: :not_found
+    end
+  end
+
+  private
+
+  def bird_params
+    params.permit(:name, :species, :likes)
+  end
+
+end
+
+#+end_src
+
+I then ran the 'rails s' server command to check my work, and then provided the following Postman 'PATCH' request accordingly:
+- HTTP Verb Used: PATCH
+- URL Used: http://localhost:3000/birds/1
+- Headers > Content-Type: "application/json"
+- Body:
+#+begin_src text
+{
+  "likes": 1
+}
+#+end_src
+
+I then received the following response:
+#+begin_src json
+{
+    "likes": 1,
+    "id": 1,
+    "name": "Black-Capped Chickadee",
+    "species": "Poecile Atricapillus",
+    "created_at": "2022-10-22T01:37:17.394Z",
+    "updated_at": "2022-10-22T01:42:59.294Z"
+}
+#+end_src
+
+I then adjusted the 'app/config/routes.rb' routes file with the following content to force the backend to handle the calculation of likes in this scenario:
+#+begin_src ruby
+Rails.application.routes.draw do
+  resources :birds, only: [:index, :show, :create, :update]
+  patch "/birds/:id/like", to: "birds#increment_likes"
+end
+#+end_src
+
+I then revised the 'app/controllers/birds_controller.rb' controller file with the following revisions to include the 'increment_likes' method:
+#+begin_src ruby
+class BirdsController < ApplicationController
+
+  # GET /birds
+  def index
+    birds = Bird.all
+    render json: birds
+  end
+
+  # POST /birds
+  def create
+    bird = Bird.create(bird_params)
+    render json: bird, status: :created
+  end
+
+  # GET /birds/:id
+  def show
+    bird = Bird.find_by(id: params[:id])
+    if bird
+      render json: bird
+    else
+      render json: { error: "Bird not found" }, status: :not_found
+    end
+  end
+
+  # PATCH /birds/:id
+  def update
+    bird = Bird.find_by(id: params[:id])
+    if bird
+      bird.update(bird_params)
+      render json: bird
+    else
+      render json: { error: "Bird not found"}, status: :not_found
+    end
+  end
+
+  def increment_likes
+    bird = Bird.find_by(id: params[:id])
+    if bird
+      bird.update(bird_params.likes + 1)
+      render json: bird
+    else
+      render json: { error: "Bird not found" }, status: :not_found
+    end
+  end
+
+  private
+
+  def bird_params
+    params.permit(:name, :species, :likes)
+  end
+
+end
+#+end_src
+
+<2022-10-21 Fri 20:49>: NOTE: By creating a separate custom route, we are breaking the rules of RESTful convention. The way to really do this would be to create a 'LikesController' with this in mind, which is mentioned in theory in this link here by the creator of Ruby On Rails:
+- http://jeromedalbert.com/how-dhh-organizes-his-rails-controllers/
+
+<2022-10-21 Fri 20:52>: Answers To Check Your Understanding:
+- Q1. Under what circumstances does it make sense to create a custom route?
+- Answer: It would make sense to create a custom route if you have some kind of custom situation where you need the backend to do calculations instead of having them done on the frontend
+- Q2. What are the advantages and disadvantages of using custom routes?
+- Answer: Advantages include the endless ideas of what you CAN do, and the disadvantages include the fact that they are not RESTful in nature so a user expecting a RESTful API might not be able to utilize the API accordingly
